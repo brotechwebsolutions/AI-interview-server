@@ -1,48 +1,99 @@
+/**
+ * ================================
+ * AI SERVER – PRODUCTION READY
+ * Optimized for Railway (Free Tier)
+ * ================================
+ */
+
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
-require("dotenv").config();
 
+// Local imports
 const connectDB = require("./src/config/db");
 const errorHandler = require("./src/middleware/errorHandler");
 const rateLimiter = require("./src/middleware/rateLimiter");
 
+// Routes
 const authRoutes = require("./src/routes/authRoutes");
 const interviewRoutes = require("./src/routes/interviewRoutes");
 const dashboardRoutes = require("./src/routes/dashboardRoutes");
 
 const app = express();
 
-// 🔐 Security + middleware
+/* ================================
+   🔐 SECURITY & CORE MIDDLEWARE
+================================ */
+
+// Security headers
 app.use(helmet());
-app.use(cors({ origin: "*" }));
+
+// CORS (safe for frontend connection)
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "*",
+    credentials: true
+  })
+);
+
+// Body parser
 app.use(express.json({ limit: "2mb" }));
-app.use(morgan("combined"));
+
+// Logging (production safe)
+app.use(
+  morgan(process.env.NODE_ENV === "production" ? "tiny" : "dev")
+);
+
+// Rate limiting (protects free tier)
 app.use(rateLimiter);
 
-// 🗄️ Database
+/* ================================
+   🗄️ DATABASE CONNECTION
+================================ */
+
 connectDB();
 
-// ✅ Health check
+/* ================================
+   ✅ HEALTH CHECK (Railway Ping)
+================================ */
+
 app.get("/", (req, res) => {
-  res.json({ message: "AI Interview Server (FREE AI) 🚀" });
+  res.status(200).json({
+    status: "ok",
+    message: "AI Interview Server (FREE AI) 🚀"
+  });
 });
 
-// 🔗 Routes
+/* ================================
+   🔗 API ROUTES
+================================ */
+
 app.use("/api/auth", authRoutes);
 app.use("/api/interview", interviewRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
-// ❌ Error handler (must be LAST)
+/* ================================
+   ❌ GLOBAL ERROR HANDLER
+   (must be LAST)
+================================ */
+
 app.use(errorHandler);
 
-// 🚀 Server + TIMEOUT FIX
+/* ================================
+   🚀 SERVER START
+================================ */
+
 const PORT = process.env.PORT || 5001;
 
 const server = app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
 
-// ⏱️ IMPORTANT: prevents ECONNRESET with slow free AI
+/* ================================
+   ⏱️ TIMEOUT FIX
+   Prevents ECONNRESET for slow AI
+================================ */
+
 server.setTimeout(120000); // 2 minutes
